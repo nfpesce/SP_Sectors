@@ -1,4 +1,4 @@
-const CACHE_NAME = 'spsectors-v1';
+const CACHE_NAME = 'spsectors-v2';
 const SHELL_FILES = [
   './',
   './index.html',

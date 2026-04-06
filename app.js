@@ -59,7 +59,6 @@ let refreshTimer = null;
 const HISTORY_MIN_SNAPSHOTS = 2;  // Activate after just 2 updates
 let quoteHistory = []; // [{ ts: Date, data: { TICKER: { dp } } }]
 let historySliderVisible = false;
-let sliderJustClosed = false;  // Guards against phantom click re-opening after close
 
 // ── Color interpolation ───────────────────────────────────
 function pctToColor(pct) {
@@ -246,61 +245,6 @@ function formatTime(date) {
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-function showHistorySlider() {
-  if (historySliderVisible) return;
-  historySliderVisible = true;
-
-  const overlay = document.createElement('div');
-  overlay.id = 'history-overlay';
-  // Stop clicks inside the overlay from bubbling to the grid tap handler
-  overlay.addEventListener('click', e => e.stopPropagation());
-
-  const timeLabel = document.createElement('div');
-  timeLabel.id = 'history-time';
-  timeLabel.textContent = formatTime(quoteHistory[quoteHistory.length - 1].ts);
-
-  const slider = document.createElement('input');
-  slider.type = 'range';
-  slider.id = 'history-slider';
-  slider.min = 0;
-  slider.max = quoteHistory.length - 1;
-  slider.value = quoteHistory.length - 1;
-
-  // While dragging: show historical snapshot (no CSS transition)
-  slider.addEventListener('input', () => {
-    const idx = parseInt(slider.value);
-    const snapshot = quoteHistory[idx];
-    timeLabel.textContent = formatTime(snapshot.ts);
-    applySnapshot(snapshot.data, false);
-  });
-
-  // On release: hide overlay and restore live data.
-  // Set sliderJustClosed so the document click that follows pointerup
-  // doesn't immediately re-open the slider.
-  function onRelease() {
-    sliderJustClosed = true;
-    hideHistorySlider();
-    setTimeout(() => { sliderJustClosed = false; }, 300);
-  }
-  slider.addEventListener('pointerup', onRelease);
-  slider.addEventListener('pointercancel', onRelease);
-
-  overlay.appendChild(timeLabel);
-  overlay.appendChild(slider);
-  document.body.appendChild(overlay);
-
-  // Show latest snapshot on open
-  applySnapshot(quoteHistory[quoteHistory.length - 1].data, false);
-}
-
-function hideHistorySlider() {
-  historySliderVisible = false;
-  const overlay = document.getElementById('history-overlay');
-  if (overlay) overlay.remove();
-  // Restore live data with transition
-  applySnapshot(quoteData, true);
-}
-
 function applySnapshot(data, withTransition) {
   const tiles = document.querySelectorAll('.tile');
   for (const tile of tiles) {
@@ -313,18 +257,95 @@ function applySnapshot(data, withTransition) {
   }
 }
 
-function handleGridTap(e) {
-  // Guard: skip the phantom click that fires right after slider pointerup
-  if (sliderJustClosed) return;
-  // Need at least 2 snapshots to have something to scrub
+function hideHistorySlider() {
+  if (!historySliderVisible) return;
+  historySliderVisible = false;
+  const overlay = document.getElementById('history-overlay');
+  if (overlay) {
+    overlay.classList.add('hiding');
+    setTimeout(() => overlay.remove(), 200);
+  }
+  applySnapshot(quoteData, true);
+}
+
+function showHistorySlider() {
+  if (historySliderVisible) return;
   if (quoteHistory.length < HISTORY_MIN_SNAPSHOTS) return;
-  // Clicks inside the overlay are stopped there; this is an extra safety check
-  if (e.target.closest('#history-overlay')) return;
+  historySliderVisible = true;
+
+  const overlay = document.createElement('div');
+  overlay.id = 'history-overlay';
+
+  const timeLabel = document.createElement('div');
+  timeLabel.id = 'history-time';
+  timeLabel.textContent = formatTime(quoteHistory[quoteHistory.length - 1].ts);
+
+  const slider = document.createElement('input');
+  slider.type = 'range';
+  slider.id = 'history-slider';
+  slider.min = 0;
+  slider.max = quoteHistory.length - 1;
+  slider.value = quoteHistory.length - 1;
+
+  function onSliderChange() {
+    const idx = parseInt(slider.value);
+    const snapshot = quoteHistory[idx];
+    if (!snapshot) return;
+    timeLabel.textContent = formatTime(snapshot.ts);
+    applySnapshot(snapshot.data, false);
+  }
+
+  // input fires while dragging on both desktop and mobile
+  slider.addEventListener('input', onSliderChange);
+  // change fires on release on some browsers
+  slider.addEventListener('change', onSliderChange);
+
+  overlay.appendChild(timeLabel);
+  overlay.appendChild(slider);
+  document.body.appendChild(overlay);
+
+  applySnapshot(quoteHistory[quoteHistory.length - 1].data, false);
+}
+
+// Detect tap on the grid: show/hide slider
+// Uses both touchend and click to cover all browsers/devices
+let lastTouchWasSlider = false;
+
+function handleTouchEnd(e) {
+  // Track if the touch ended on the slider (to suppress the click that follows)
+  lastTouchWasSlider = !!e.target.closest('#history-overlay');
+  if (lastTouchWasSlider) return;
+
+  if (quoteHistory.length < HISTORY_MIN_SNAPSHOTS) return;
 
   if (historySliderVisible) {
     hideHistorySlider();
   } else {
     showHistorySlider();
+  }
+}
+
+function handleClick(e) {
+  // On touch devices, click fires after touchend — skip if we already handled it
+  if (lastTouchWasSlider) { lastTouchWasSlider = false; return; }
+  if (e.target.closest('#history-overlay')) return;
+  if (quoteHistory.length < HISTORY_MIN_SNAPSHOTS) return;
+
+  if (historySliderVisible) {
+    hideHistorySlider();
+  } else {
+    showHistorySlider();
+  }
+}
+
+// Close slider when user lifts finger anywhere on the document
+// This handles the "release = close" behavior even if finger drifted off slider
+function handleDocumentPointerUp(e) {
+  if (!historySliderVisible) return;
+  // Only close if the release was on the slider track/thumb area, not elsewhere
+  // (so a tap outside = handleClick takes care of closing)
+  if (e.target && e.target.id === 'history-slider') {
+    hideHistorySlider();
   }
 }
 
@@ -375,8 +396,10 @@ async function init() {
   // Handle window resize (also catches late viewport initialization)
   window.addEventListener('resize', handleResize);
 
-  // History slider: tap anywhere on screen to activate
-  document.addEventListener('click', handleGridTap);
+  // History slider events — touchend for mobile, click for desktop
+  document.addEventListener('touchend', handleTouchEnd, { passive: true });
+  document.addEventListener('click', handleClick);
+  document.addEventListener('pointerup', handleDocumentPointerUp);
 }
 
 document.addEventListener('DOMContentLoaded', init);

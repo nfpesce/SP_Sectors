@@ -85,6 +85,15 @@ html, body {
   to   { transform: translateY(0);    opacity: 1; }
 }
 
+#history-overlay.hiding {
+  animation: slideDown 0.2s ease forwards;
+}
+
+@keyframes slideDown {
+  from { transform: translateY(0);    opacity: 1; }
+  to   { transform: translateY(100%); opacity: 0; }
+}
+
 #history-time {
   color: #ffe033;
   font-size: 14px;
