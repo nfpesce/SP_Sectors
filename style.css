@@ -86,7 +86,7 @@ html, body {
 }
 
 #history-time {
-  color: #fff;
+  color: #ffe033;
   font-size: 14px;
   font-weight: 600;
   text-shadow: 0 1px 4px rgba(0,0,0,0.8);
@@ -107,7 +107,7 @@ html, body {
 
 #history-slider::-webkit-slider-runnable-track {
   height: 4px;
-  background: rgba(255,255,255,0.4);
+  background: rgba(255,224,51,0.5);
   border-radius: 2px;
 }
 
@@ -116,14 +116,14 @@ html, body {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: #fff;
+  background: #ffe033;
   margin-top: -12px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.5);
 }
 
 #history-slider::-moz-range-track {
   height: 4px;
-  background: rgba(255,255,255,0.4);
+  background: rgba(255,224,51,0.5);
   border-radius: 2px;
 }
 
@@ -131,7 +131,7 @@ html, body {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: #fff;
+  background: #ffe033;
   border: none;
   box-shadow: 0 2px 8px rgba(0,0,0,0.5);
 }
