@@ -55,6 +55,11 @@ let layoutRects = []; // output of squarify()
 let quoteData = {};   // { TICKER: { dp: number } }
 let refreshTimer = null;
 
+// ── History ───────────────────────────────────────────────
+const HISTORY_MIN_SNAPSHOTS = 10;
+let quoteHistory = []; // [{ ts: Date, data: { TICKER: { dp } } }]
+let historySliderVisible = false;
+
 // ── Color interpolation ───────────────────────────────────
 function pctToColor(pct) {
   if (pct == null || isNaN(pct)) return 'rgb(65,65,65)';
@@ -228,7 +233,90 @@ async function fetchQuotes() {
   });
 
   await Promise.all(fetches);
+
+  // Save snapshot to history
+  quoteHistory.push({ ts: new Date(), data: { ...quoteData } });
+
   updateColors();
+}
+
+// ── History slider ────────────────────────────────────────
+function formatTime(date) {
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function showHistorySlider() {
+  if (historySliderVisible) return;
+  historySliderVisible = true;
+
+  const overlay = document.createElement('div');
+  overlay.id = 'history-overlay';
+
+  const timeLabel = document.createElement('div');
+  timeLabel.id = 'history-time';
+  timeLabel.textContent = formatTime(quoteHistory[quoteHistory.length - 1].ts);
+
+  const slider = document.createElement('input');
+  slider.type = 'range';
+  slider.id = 'history-slider';
+  slider.min = 0;
+  slider.max = quoteHistory.length - 1;
+  slider.value = quoteHistory.length - 1;
+
+  // While dragging: show historical snapshot (no CSS transition)
+  slider.addEventListener('input', () => {
+    const idx = parseInt(slider.value);
+    const snapshot = quoteHistory[idx];
+    timeLabel.textContent = formatTime(snapshot.ts);
+    applySnapshot(snapshot.data, false);
+  });
+
+  // On release: hide overlay and restore live data
+  function onRelease() {
+    hideHistorySlider();
+  }
+  slider.addEventListener('pointerup', onRelease);
+  slider.addEventListener('pointercancel', onRelease);
+
+  overlay.appendChild(timeLabel);
+  overlay.appendChild(slider);
+  document.body.appendChild(overlay);
+
+  // Show latest snapshot on open
+  applySnapshot(quoteHistory[quoteHistory.length - 1].data, false);
+}
+
+function hideHistorySlider() {
+  historySliderVisible = false;
+  const overlay = document.getElementById('history-overlay');
+  if (overlay) overlay.remove();
+  // Restore live data with transition
+  applySnapshot(quoteData, true);
+}
+
+function applySnapshot(data, withTransition) {
+  const tiles = document.querySelectorAll('.tile');
+  for (const tile of tiles) {
+    const ticker = tile.dataset.ticker;
+    const dp = data[ticker] ? data[ticker].dp : null;
+    tile.style.transition = withTransition ? '' : 'none';
+    tile.style.backgroundColor = pctToColor(dp);
+    const changeEl = tile.querySelector('.change');
+    if (changeEl) changeEl.textContent = formatPct(dp);
+  }
+}
+
+function handleGridTap(e) {
+  // Only activate if we have enough history
+  if (quoteHistory.length < HISTORY_MIN_SNAPSHOTS) return;
+  // Ignore if slider interaction
+  if (e.target.closest('#history-overlay')) return;
+
+  if (historySliderVisible) {
+    hideHistorySlider();
+  } else {
+    showHistorySlider();
+  }
 }
 
 // ── Resize handling ───────────────────────────────────────
@@ -277,6 +365,9 @@ async function init() {
 
   // Handle window resize (also catches late viewport initialization)
   window.addEventListener('resize', handleResize);
+
+  // History slider: tap anywhere on screen to activate
+  document.addEventListener('click', handleGridTap);
 }
 
 document.addEventListener('DOMContentLoaded', init);
