@@ -84,26 +84,29 @@ function formatPct(dp) {
   return `${sign}${dp.toFixed(2)}%`;
 }
 
-// ── Fetch sector weights from server proxy ────────────────
+// ── Fetch sector weights ──────────────────────────────────
+// Tries sectors.json first (works on GitHub Pages and locally),
+// then falls back to /api/sectors (local Node server proxy),
+// then falls back to hardcoded defaults.
 async function fetchSectorWeights() {
-  try {
-    const res = await fetch('/api/sectors');
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    if (data.sectors && Array.isArray(data.sectors)) {
-      const weights = {};
-      for (const s of data.sectors) {
-        const ticker = SECTOR_NAME_MAP[s.name];
-        if (ticker) weights[ticker] = s.weight;
+  for (const url of ['./sectors.json', '/api/sectors']) {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) continue;
+      const data = await res.json();
+      if (data.sectors && Array.isArray(data.sectors)) {
+        const weights = {};
+        for (const s of data.sectors) {
+          const ticker = SECTOR_NAME_MAP[s.name];
+          if (ticker) weights[ticker] = s.weight;
+        }
+        if (Object.keys(weights).length >= 8) return weights;
       }
-      // Only use live weights if we got a reasonable number of sectors
-      if (Object.keys(weights).length >= 8) {
-        return weights;
-      }
+    } catch (err) {
+      // try next source
     }
-  } catch (err) {
-    console.warn('Failed to fetch live sector weights, using defaults:', err.message);
   }
+  console.warn('Using hardcoded sector weights as fallback');
   return { ...DEFAULT_WEIGHTS };
 }
 

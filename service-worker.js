@@ -6,6 +6,7 @@ const SHELL_FILES = [
   './treemap.js',
   './app.js',
   './manifest.json',
+  './sectors.json',
   './icons/icon-192.svg',
   './icons/icon-512.svg',
 ];
