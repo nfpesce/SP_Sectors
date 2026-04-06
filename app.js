@@ -56,9 +56,10 @@ let quoteData = {};   // { TICKER: { dp: number } }
 let refreshTimer = null;
 
 // ── History ───────────────────────────────────────────────
-const HISTORY_MIN_SNAPSHOTS = 10;
+const HISTORY_MIN_SNAPSHOTS = 2;  // Activate after just 2 updates
 let quoteHistory = []; // [{ ts: Date, data: { TICKER: { dp } } }]
 let historySliderVisible = false;
+let sliderJustClosed = false;  // Guards against phantom click re-opening after close
 
 // ── Color interpolation ───────────────────────────────────
 function pctToColor(pct) {
@@ -251,6 +252,8 @@ function showHistorySlider() {
 
   const overlay = document.createElement('div');
   overlay.id = 'history-overlay';
+  // Stop clicks inside the overlay from bubbling to the grid tap handler
+  overlay.addEventListener('click', e => e.stopPropagation());
 
   const timeLabel = document.createElement('div');
   timeLabel.id = 'history-time';
@@ -271,9 +274,13 @@ function showHistorySlider() {
     applySnapshot(snapshot.data, false);
   });
 
-  // On release: hide overlay and restore live data
+  // On release: hide overlay and restore live data.
+  // Set sliderJustClosed so the document click that follows pointerup
+  // doesn't immediately re-open the slider.
   function onRelease() {
+    sliderJustClosed = true;
     hideHistorySlider();
+    setTimeout(() => { sliderJustClosed = false; }, 300);
   }
   slider.addEventListener('pointerup', onRelease);
   slider.addEventListener('pointercancel', onRelease);
@@ -307,9 +314,11 @@ function applySnapshot(data, withTransition) {
 }
 
 function handleGridTap(e) {
-  // Only activate if we have enough history
+  // Guard: skip the phantom click that fires right after slider pointerup
+  if (sliderJustClosed) return;
+  // Need at least 2 snapshots to have something to scrub
   if (quoteHistory.length < HISTORY_MIN_SNAPSHOTS) return;
-  // Ignore if slider interaction
+  // Clicks inside the overlay are stopped there; this is an extra safety check
   if (e.target.closest('#history-overlay')) return;
 
   if (historySliderVisible) {
