@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="64" fill="#1a1a1a"/>
+  <!-- Treemap-style layout representing sectors -->
+  <rect x="16" y="16" width="266" height="240" rx="12" fill="#19a019"/>
+  <rect x="290" y="16" width="206" height="132" rx="12" fill="#a01919"/>
+  <rect x="290" y="156" width="206" height="100" rx="12" fill="#378237"/>
+  <rect x="16" y="264" width="160" height="120" rx="12" fill="#c03030"/>
+  <rect x="184" y="264" width="150" height="120" rx="12" fill="#414141"/>
+  <rect x="342" y="264" width="154" height="120" rx="12" fill="#0a780a"/>
+  <rect x="16" y="392" width="130" height="104" rx="12" fill="#8b3030"/>
+  <rect x="154" y="392" width="120" height="104" rx="12" fill="#378237"/>
+  <rect x="282" y="392" width="108" height="104" rx="12" fill="#a01919"/>
+  <rect x="398" y="392" width="98" height="104" rx="12" fill="#414141"/>
+  <text x="149" y="148" text-anchor="middle" fill="white" font-size="48" font-weight="bold" font-family="sans-serif">XLK</text>
+  <text x="393" y="92" text-anchor="middle" fill="white" font-size="32" font-weight="bold" font-family="sans-serif">XLY</text>
+  <text x="393" y="214" text-anchor="middle" fill="white" font-size="28" font-weight="bold" font-family="sans-serif">XLF</text>
+</svg>
