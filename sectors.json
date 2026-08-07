@@ -2,48 +2,48 @@
   "sectors": [
     {
       "name": "Information Technology",
-      "weight": 36.35
+      "weight": 36.45
     },
     {
       "name": "Financials",
-      "weight": 12.44
+      "weight": 12.47
     },
     {
       "name": "Communication Services",
-      "weight": 10.76
+      "weight": 10.43
     },
     {
       "name": "Consumer Discretionary",
-      "weight": 9.88
+      "weight": 9.87
     },
     {
       "name": "Health Care",
-      "weight": 8.57
+      "weight": 8.75
     },
     {
       "name": "Industrials",
-      "weight": 8.4
+      "weight": 8.43
     },
     {
       "name": "Consumer Staples",
-      "weight": 4.99
+      "weight": 5.03
     },
     {
       "name": "Energy",
-      "weight": 3.13
+      "weight": 3.12
     },
     {
       "name": "Utilities",
-      "weight": 2
+      "weight": 1.97
     },
     {
       "name": "Real Estate",
-      "weight": 1.79
+      "weight": 1.78
     },
     {
       "name": "Materials",
-      "weight": 1.72
+      "weight": 1.75
     }
   ],
-  "updated": "2026-08-05"
+  "updated": "2026-08-07"
 }
