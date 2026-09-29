@@ -23,7 +23,7 @@ const DEFAULT_WEIGHTS = {
   XLI: 8.26,  XLP: 5.55,  XLE: 3.55,  XLU: 2.32,  XLB: 1.90, XLRE: 1.79,
 };
 
-// Mapping from us500.com sector names to our tickers
+// Mapping from GICS sector names to our tickers
 const SECTOR_NAME_MAP = {
   'Information Technology': 'XLK',
   'Consumer Discretionary': 'XLY',

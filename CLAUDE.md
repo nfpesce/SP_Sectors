@@ -20,7 +20,7 @@ PWA (Progressive Web App) de pantalla completa que muestra los 11 sectores del S
 
 ### Stack
 - **Frontend**: Vanilla JS + CSS + HTML — sin frameworks, sin bundler, sin dependencias npm
-- **Backend local**: Node.js HTTP server (`server.js`) — solo para desarrollo local; sirve archivos estáticos y proxea la llamada a us500.com para evitar CORS
+- **Backend local**: Node.js HTTP server (`server.js`) — solo para desarrollo local; sirve archivos estáticos y proxea la consulta a State Street
 - **Hosting**: GitHub Pages (solo estáticos) — el proxy no corre en producción
 
 ### Archivos clave
@@ -32,6 +32,8 @@ PWA (Progressive Web App) de pantalla completa que muestra los 11 sectores del S
 | `treemap.js` | Algoritmo squarified treemap (puro, sin efectos secundarios) |
 | `style.css` | Estilos: posicionamiento absoluto de tiles + overlay del slider |
 | `server.js` | Servidor Node.js: archivos estáticos + ruta `/api/sectors` |
+| `scripts/sector-source.js` | Descarga, parseo y validación del desglose sectorial oficial de SPY |
+| `scripts/update-sectors.js` | Actualizador seguro de `sectors.json` con fallback al archivo existente |
 | `service-worker.js` | PWA: cache-first para shell, bypass para APIs |
 | `sectors.json` | Pesos de sectores estáticos (actualizado por GitHub Action) |
 | `manifest.json` | Configuración PWA |
@@ -125,14 +127,14 @@ Font sizes: `minDim * factor` con mínimos absolutos para legibilidad.
 
 ### Fuente
 - **Producción (GH Pages):** `sectors.json` estático en el repo
-- **Desarrollo local:** proxy `/api/sectors` en `server.js` que scrapea us500.com
+- **Desarrollo local:** proxy `/api/sectors` en `server.js` que consulta State Street y usa `sectors.json` si la fuente falla
 - **Fallback:** `DEFAULT_WEIGHTS` hardcodeado en `app.js`
 
-### Scraping en `server.js`
-La página `https://us500.com/sp500-companies-by-sector` es una app Next.js. Los datos están en el JSON embebido en `<script id="__NEXT_DATA__">`. El proxy extrae `props.pageProps.sectors.info.labelsData` y `holdData`.
+### Fuente de State Street
+La página oficial de SPY de State Street publica el desglose sectorial del índice en el campo embebido `index-sector-breakdown`. `scripts/sector-source.js` extrae esos datos y exige los 11 sectores esperados, pesos numéricos que sumen aproximadamente 100% y una fecha válida. Si el JSON embebido no está disponible, intenta leer la tabla visible `Index Sector Breakdown`.
 
 ### Actualización automática vía GitHub Action
-`.github/workflows/update-sectors.yml` corre **lunes a viernes a las 14:00 UTC (10am ET)**. Hace el mismo scraping que el proxy local, actualiza `sectors.json` y commitea si hay cambios. También se puede disparar manualmente desde GitHub Actions.
+`.github/workflows/update-sectors.yml` corre **lunes a viernes a las 14:00 UTC (10am ET)**. Ejecuta `scripts/update-sectors.js`, actualiza `sectors.json` y commitea si hay cambios. Si la descarga, el parseo o la validación fallan, conserva el último `sectors.json` válido y deja una advertencia en la ejecución sin sobrescribir los pesos. También se puede disparar manualmente desde GitHub Actions.
 
 ### Tickers y mapeo
 ```
@@ -184,12 +186,13 @@ quoteHistory: [{ ts: Date, data: { TICKER: { dp } } }]   ← un entry por fetchQ
 
 ## Service Worker
 
-**Cache name:** `spsectors-v2`  
+**Cache name:** `spsectors-v3`
 Para forzar que los usuarios descarten cache viejo, hay que incrementar este número cada vez que se hacen cambios significativos al app shell.
 
 **Estrategia:**
 - `./` y archivos de app shell → cache-first (funciona offline)
 - `finnhub.io` y `/api/` → always network (nunca cachear precios)
+- `sectors.json` → network-first; actualiza la caché cuando hay red y usa la última copia si la descarga falla
 
 ---
 
@@ -210,9 +213,9 @@ Para forzar que los usuarios descarten cache viejo, hay que incrementar este nú
 - Treemap proporcional con 11 sectores del S&P 500
 - Colores por variación diaria (Finnhub API)
 - Actualización de precios cada 60 segundos
-- Pesos de sectores desde us500.com (proxy local / sectors.json / fallback)
+- Pesos de sectores desde State Street (proxy local / sectors.json / fallback)
 - GitHub Action para actualizar sectores diariamente
-- PWA installable (service worker v2, manifest, íconos)
+- PWA installable (service worker v3, manifest, íconos)
 - History slider con scrubbing temporal
 - Font sizing dinámico por tamaño de tile
 - Resize handler (recomputa treemap al cambiar orientación/tamaño)
@@ -232,10 +235,10 @@ Para forzar que los usuarios descarten cache viejo, hay que incrementar este nú
 En el preview tool del IDE y potencialmente en algunos browsers iOS con apertura "cold", `offsetWidth/offsetHeight` del grid puede reportar 0 en `DOMContentLoaded`. El poller de 50ms lo resuelve en la práctica. En un browser real de escritorio o móvil normal no se manifiesta.
 
 ### Service worker cache
-Cada vez que se cambia `app.js`, `style.css` o `treemap.js`, se debe incrementar `CACHE_NAME` en `service-worker.js` (actualmente `spsectors-v2`) para que los usuarios existentes reciban el código nuevo. Sin esto, el browser sirve los archivos cacheados indefinidamente.
+Cada vez que se cambia `app.js`, `style.css` o `treemap.js`, se debe incrementar `CACHE_NAME` en `service-worker.js` (actualmente `spsectors-v3`) para que los usuarios existentes reciban el código nuevo. `sectors.json` usa network-first y se actualiza sin necesidad de cambiar la versión de caché.
 
-### us500.com scraping frágil
-Si us500.com cambia la estructura de su `__NEXT_DATA__`, el scraping en `server.js` y en el GitHub Action falla. El `sectors.json` queda desactualizado pero la app sigue funcionando (con los pesos del último update exitoso o con el fallback hardcodeado). Los pesos del S&P 500 cambian lentamente (pocos puntos base por semana), así que el impacto es mínimo.
+### Cambios en la fuente de State Street
+Si State Street cambia la estructura de su página, el parser rechaza una respuesta incompleta o inesperada. El workflow conserva el último `sectors.json` válido; el proxy local también recurre a ese archivo y la app mantiene `DEFAULT_WEIGHTS` como último nivel de fallback. Los tests cubren el JSON embebido, la tabla visible, datos incompletos y fuentes temporalmente inaccesibles.
 
 ### GitHub Pages delay
 Después de un `git push`, GitHub Pages tarda 1-3 minutos en publicar el nuevo `index.html`. Los usuarios con service worker activo además necesitan cerrar y reabrir la app para que el nuevo SW tome efecto.

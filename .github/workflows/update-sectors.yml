@@ -14,36 +14,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Fetch sector weights from us500.com
-        run: |
-          node -e "
-          const https = require('https');
-          https.get('https://us500.com/sp500-companies-by-sector', {
-            headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SPSectors/1.0)' }
-          }, (res) => {
-            let body = '';
-            res.on('data', c => body += c);
-            res.on('end', () => {
-              const match = body.match(/<script id=\"__NEXT_DATA__\"[^>]*>([\s\S]*?)<\/script>/);
-              if (!match) { console.error('No __NEXT_DATA__'); process.exit(1); }
-              const data = JSON.parse(match[1]);
-              const pageProps = data.props?.pageProps;
-              const info = pageProps?.sectors?.info || pageProps?.info;
-              if (!info) { console.error('No sector info'); process.exit(1); }
-              const { labelsData: labels, holdData: holds } = info;
-              if (!labels || !holds) { console.error('No labels/holds'); process.exit(1); }
-              const sectors = labels.map((name, i) => ({
-                name: name.trim(),
-                weight: parseFloat(holds[i])
-              })).filter(s => !isNaN(s.weight));
-              if (sectors.length < 8) { console.error('Too few sectors:', sectors.length); process.exit(1); }
-              const today = new Date().toISOString().split('T')[0];
-              const out = JSON.stringify({ sectors, updated: today }, null, 2);
-              require('fs').writeFileSync('sectors.json', out);
-              console.log('Updated sectors.json with', sectors.length, 'sectors');
-            });
-          }).on('error', e => { console.error(e); process.exit(1); });
-          "
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Fetch sector weights from State Street
+        run: node scripts/update-sectors.js
 
       - name: Commit if changed
         run: |
